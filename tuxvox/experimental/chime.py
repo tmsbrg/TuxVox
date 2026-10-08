@@ -33,11 +33,10 @@ from typing import Final
 from tuxvox.logger import logger
 
 # Logical chime -> freedesktop event id (canberra) and file basename.
+# Do not use the "complete" event — it sounds like an harsh bell.
 _CHIME_EVENTS: Final[dict[str, str]] = {
     "start": "device-added",
-    "stop": "device-removed",
-    "done": "complete",
-    "error": "dialog-error",
+    "transcribed": "device-removed",
 }
 
 _SOUND_DIRS: Final[tuple[str, ...]] = ("/usr/share/sounds/freedesktop/stereo",)
@@ -58,7 +57,7 @@ def play(chime: str) -> None:
     """Play a named chime without blocking the caller.
 
     Args:
-        chime: One of ``'start'``, ``'stop'``, ``'done'``, ``'error'``.
+        chime: ``'start'`` when recording begins, ``'transcribed'`` when Whisper finishes.
     """
     event_id = _CHIME_EVENTS.get(chime)
     if event_id is None:

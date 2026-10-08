@@ -33,6 +33,7 @@ from tuxvox.experimental.hotkey_manager import HotkeyManager
 from tuxvox.experimental.inline_typer import InlineTyper
 from tuxvox.experimental.overlay_window import OverlayWindow
 from tuxvox.experimental.tray_icon import TrayIcon
+from tuxvox.experimental import chime
 from tuxvox.logger import logger
 
 if TYPE_CHECKING:
@@ -191,6 +192,7 @@ class ExperimentalManager:
                 self._app_window._recorder.start(device=mic)
                 self._app_window._is_recording = True
 
+                chime.play("start")
                 self.overlay.set_state("listening")
                 # In inline mode the overlay must NOT be shown: presenting a
                 # window steals focus from the target app on Wayland, which
@@ -251,6 +253,8 @@ class ExperimentalManager:
             self.overlay.show_overlay()
             GLib.timeout_add(2000, self.overlay.hide_overlay)
             return False
+
+        chime.play("transcribed")
 
         output_mode = self._config.get("output_mode")
 
