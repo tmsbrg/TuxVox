@@ -1147,9 +1147,9 @@ class SettingsWindow(Adw.PreferencesWindow):
         hotkey_group = Adw.PreferencesGroup(
             title="Global Hotkey",
             description=(
-                "Press this key combination from any app to start recording "
-                "without switching to TuxVox. Press it again to stop, or "
-                "speak and it will stop after a short silence."
+                "Press the key combination below from any app to start recording "
+                "without switching to TuxVox, or run the terminal command from a "
+                "launcher or global menu. Press again to stop."
             ),
         )
 
@@ -1166,6 +1166,22 @@ class SettingsWindow(Adw.PreferencesWindow):
         self._hotkey_row.add_suffix(change_btn)
         self._hotkey_row.set_activatable_widget(change_btn)
         hotkey_group.add(self._hotkey_row)
+
+        from tuxvox.cli import get_toggle_recording_command
+
+        self._toggle_record_cmd = get_toggle_recording_command()
+        cli_row = Adw.ActionRow(
+            title="Terminal / menu command",
+            subtitle=self._toggle_record_cmd,
+        )
+        copy_cmd_btn = Gtk.Button(
+            label="Copy",
+            valign=Gtk.Align.CENTER,
+        )
+        copy_cmd_btn.connect("clicked", self._on_copy_toggle_record_command)
+        cli_row.add_suffix(copy_cmd_btn)
+        cli_row.set_activatable_widget(copy_cmd_btn)
+        hotkey_group.add(cli_row)
 
         exp_sub_box.append(hotkey_group)
 
@@ -1265,6 +1281,15 @@ class SettingsWindow(Adw.PreferencesWindow):
             toast.set_timeout(3)
             self.add_toast(toast)
             logger.info("Copied uinput setup command to clipboard.")
+
+    def _on_copy_toggle_record_command(self, _button: Gtk.Button) -> None:
+        """Copy the CLI toggle-recording command to the clipboard."""
+        clipboard = Gdk.Display.get_default().get_clipboard()
+        clipboard.set(self._toggle_record_cmd)
+        toast = Adw.Toast.new("Copied command to clipboard.")
+        toast.set_timeout(3)
+        self.add_toast(toast)
+        logger.info("Copied toggle-recording command to clipboard.")
 
     def _on_change_hotkey_clicked(self, _button: Gtk.Button) -> None:
         """Open the hotkey capture dialog."""

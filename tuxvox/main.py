@@ -24,9 +24,10 @@ import gi
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 
-from gi.repository import Adw, Gio  # noqa: E402
+from gi.repository import Adw, GLib, Gio  # noqa: E402
 
 from tuxvox.adw_compat import apply_gtk_compat, css_provider_load_string  # noqa: E402
+from tuxvox.cli import TOGGLE_RECORDING_ARG  # noqa: E402
 from tuxvox.logger import logger, setup_logging  # noqa: E402
 from tuxvox.system_info import get_system_info  # noqa: E402
 from tuxvox import __version__  # noqa: E402
@@ -40,8 +41,21 @@ class TuxVoxApp(Adw.Application):
     def __init__(self) -> None:
         super().__init__(
             application_id="org.tuxvox.TuxVox",
-            flags=Gio.ApplicationFlags.FLAGS_NONE,
+            flags=Gio.ApplicationFlags.HANDLES_COMMAND_LINE,
         )
+        self._open_window_on_activate = True
+
+    def do_command_line(self, command_line: Gio.ApplicationCommandLine) -> int:
+        """Handle ``--toggle-recording`` from menu scripts and second instances."""
+        args = command_line.get_arguments()
+        if TOGGLE_RECORDING_ARG in args:
+            GLib.idle_add(self._trigger_experimental_recording_toggle)
+            if command_line.get_is_remote():
+                return 0
+            self._open_window_on_activate = False
+
+        self.activate()
+        return 0
 
     def do_startup(self) -> None:
         """Called once when the application first starts."""
@@ -67,7 +81,27 @@ class TuxVoxApp(Adw.Application):
                 f"CPU cores: {info['cpu_cores']} (logical)."
             )
 
-        win.present()
+        if self._open_window_on_activate:
+            win.present()
+        else:
+            self._open_window_on_activate = True
+
+    def _trigger_experimental_recording_toggle(self) -> bool:
+        """Run experimental hotkey logic on the GTK main thread."""
+        win = self.props.active_window
+        if win is None:
+            logger.warning("Recording toggle ignored: TuxVox is not ready yet.")
+            return False
+
+        manager = getattr(win, "_experimental_manager", None)
+        if manager is None or not manager.enabled:
+            logger.warning(
+                "Recording toggle ignored: enable Experimental Mode and keep TuxVox running."
+            )
+            return False
+
+        manager.trigger_recording_toggle()
+        return False
 
     def _create_actions(self) -> None:
         """Register application-level actions for menus and shortcuts."""

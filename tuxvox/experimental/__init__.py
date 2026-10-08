@@ -136,6 +136,13 @@ class ExperimentalManager:
 
     # -- Hotkey trigger flow --------------------------------------------------
 
+    def trigger_recording_toggle(self) -> None:
+        """Toggle recording the same way as the global hotkey."""
+        if not self.enabled:
+            logger.warning("Recording toggle ignored: experimental mode is disabled.")
+            return
+        self._handle_hotkey_main_thread()
+
     def _on_hotkey_triggered(self) -> None:
         """Called by HotkeyManager from a background thread."""
         GLib.idle_add(self._handle_hotkey_main_thread)
