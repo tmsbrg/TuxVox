@@ -17,7 +17,8 @@ fi
 echo "Installing prerequisites (git, python3)..."
 if [[ "$OS" == "ubuntu" || "$OS" == "debian" || "$OS" == "kali" || "$OS_LIKE" == *"debian"* || "$OS_LIKE" == *"ubuntu"* ]]; then
     sudo apt-get update
-    sudo apt-get install -y git python3-venv python3-dev build-essential
+    sudo apt-get install -y git python3-venv python3-dev build-essential \
+        python3.11 python3.11-venv python3.11-dev
 elif [[ "$OS" == "fedora" || "$OS_LIKE" == *"fedora"* || "$OS_LIKE" == *"rhel"* ]]; then
     sudo dnf install -y git python3-devel make gcc gcc-c++
 elif [[ "$OS" == "arch" || "$OS_LIKE" == *"arch"* ]]; then

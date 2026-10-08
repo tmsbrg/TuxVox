@@ -29,6 +29,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, GLib, Gtk
 
+from tuxvox.adw_compat import set_window_header_content
 from tuxvox.config import Config
 from tuxvox.logger import logger
 from tuxvox.recorder import Recorder
@@ -95,10 +96,6 @@ class AppWindow(Adw.ApplicationWindow):
 
     def _build_ui(self) -> None:
         """Build the complete window UI."""
-        # Root layout
-        toolbar_view = Adw.ToolbarView()
-
-        # Header bar
         header = Adw.HeaderBar()
         header.set_title_widget(self._build_title_widget())
 
@@ -106,8 +103,6 @@ class AppWindow(Adw.ApplicationWindow):
         settings_btn.set_tooltip_text("Settings")
         settings_btn.connect("clicked", self._on_settings_clicked)
         header.pack_end(settings_btn)
-
-        toolbar_view.add_top_bar(header)
 
         # Main content area
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
@@ -208,8 +203,7 @@ class AppWindow(Adw.ApplicationWindow):
 
         content_box.append(status_box)
 
-        toolbar_view.set_content(content_box)
-        self.set_content(toolbar_view)
+        set_window_header_content(self, header, content_box)
 
     def _build_title_widget(self) -> Gtk.Widget:
         """Build the header bar title with a microphone icon."""

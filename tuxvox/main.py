@@ -26,9 +26,12 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gio  # noqa: E402
 
+from tuxvox.adw_compat import apply_gtk_compat, css_provider_load_string  # noqa: E402
 from tuxvox.logger import logger, setup_logging  # noqa: E402
 from tuxvox.system_info import get_system_info  # noqa: E402
 from tuxvox import __version__  # noqa: E402
+
+apply_gtk_compat()
 
 
 class TuxVoxApp(Adw.Application):
@@ -94,7 +97,7 @@ class TuxVoxApp(Adw.Application):
         from gi.repository import Gdk, Gtk
 
         css_provider = Gtk.CssProvider()
-        css_provider.load_from_string(APP_CSS)
+        css_provider_load_string(css_provider, APP_CSS)
         Gtk.StyleContext.add_provider_for_display(
             Gdk.Display.get_default(),
             css_provider,

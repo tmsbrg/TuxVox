@@ -281,7 +281,9 @@ class OverlayWindow(Gtk.Window):
         """Load overlay-specific CSS into the default display."""
         try:
             provider = Gtk.CssProvider()
-            provider.load_from_string(_OVERLAY_CSS)
+            from tuxvox.adw_compat import css_provider_load_string
+
+            css_provider_load_string(provider, _OVERLAY_CSS)
             display = Gdk.Display.get_default()
             if display is not None:
                 Gtk.StyleContext.add_provider_for_display(

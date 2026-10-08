@@ -32,6 +32,24 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV_DIR="$SCRIPT_DIR/.venv"
 
+# TuxVox requires Python 3.11+. On Ubuntu 22.04, `python3` is often still 3.10.
+find_python311() {
+    local cmd ver major minor
+    for cmd in python3.13 python3.12 python3.11 python3; do
+        if ! command -v "$cmd" &>/dev/null; then
+            continue
+        fi
+        ver=$("$cmd" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        major=${ver%%.*}
+        minor=${ver#*.}
+        if [ "$major" -gt 3 ] || { [ "$major" -eq 3 ] && [ "$minor" -ge 11 ]; }; then
+            echo "$cmd"
+            return 0
+        fi
+    done
+    return 1
+}
+
 echo "🎙  TuxVox Setup"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 echo ""
@@ -60,9 +78,15 @@ if [[ "$OS" == "ubuntu" || "$OS" == "debian" || "$OS" == "kali" || "$OS_LIKE" ==
     check_pkg "libportaudio2"
     check_pkg "ffmpeg"
     check_pkg "libsndfile1"
-    check_pkg "python3-gi"
     check_pkg "gir1.2-gtk-4.0"
     check_pkg "gir1.2-adw-1"
+    # Headers to build PyGObject into the 3.11 venv (Ubuntu 22.04 has no girepository-2.0).
+    check_pkg "libgirepository1.0-dev"
+    check_pkg "gobject-introspection"
+    check_pkg "libffi-dev"
+    check_pkg "libcairo2-dev"
+    check_pkg "libpango1.0-dev"
+    check_pkg "libglib2.0-dev"
 
     if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
         echo "   Installing missing system packages: ${MISSING_PKGS[*]}"
@@ -128,14 +152,44 @@ fi
 echo ""
 echo "🐍 Step 2/5: Creating Python virtual environment..."
 
+if ! PYTHON_CMD=$(find_python311); then
+    echo "   ❌ TuxVox needs Python 3.11 or newer."
+    echo "   On Ubuntu/Debian, try:"
+    echo "     sudo apt install python3.11 python3.11-venv python3.11-dev"
+    exit 1
+fi
+echo "   Using interpreter: $PYTHON_CMD ($($PYTHON_CMD --version 2>&1))"
+
 if [ -d "$VENV_DIR" ]; then
+    VENV_PY="$VENV_DIR/bin/python"
+    if [ -x "$VENV_PY" ]; then
+        VENV_VER=$("$VENV_PY" -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')
+        VENV_MAJOR=${VENV_VER%%.*}
+        VENV_MINOR=${VENV_VER#*.}
+        if [ "$VENV_MAJOR" -lt 3 ] || { [ "$VENV_MAJOR" -eq 3 ] && [ "$VENV_MINOR" -lt 11 ]; }; then
+            echo "   ⚠️  Existing venv uses Python $VENV_VER (need 3.11+)."
+            echo "   Remove it and re-run setup:"
+            echo "     rm -rf \"$VENV_DIR\""
+            echo "     ./setup.sh"
+            exit 1
+        fi
+    fi
     echo "   Virtual environment already exists at $VENV_DIR"
     echo "   (delete it and re-run this script to start fresh)"
 else
-    # --system-site-packages is CRITICAL:
-    # It lets the venv see the system-installed PyGObject/GTK4/libadwaita
-    # bindings which cannot be pip-installed.
-    python3 -m venv --system-site-packages "$VENV_DIR"
+    # Only merge system site-packages when the venv Python *is* the distro default.
+    # On Ubuntu 22.04, python3.11 + --system-site-packages pulls in /usr/lib/python3/dist-packages
+    # (built for Python 3.10), which breaks imports like psutil and PyGObject.
+    VENV_CREATE=( "$PYTHON_CMD" -m venv )
+    DEFAULT_PY3=$(readlink -f "$(command -v python3)" 2>/dev/null || true)
+    SELECTED_PY=$(readlink -f "$(command -v "$PYTHON_CMD")" 2>/dev/null || true)
+    if [ -n "$DEFAULT_PY3" ] && [ "$DEFAULT_PY3" = "$SELECTED_PY" ]; then
+        VENV_CREATE+=( --system-site-packages )
+        echo "   Using --system-site-packages (venv matches system python3)."
+    else
+        echo "   Isolated venv (no system-site-packages) for $PYTHON_CMD."
+    fi
+    "${VENV_CREATE[@]}" "$VENV_DIR"
     echo "   ✅ Created at $VENV_DIR"
 fi
 
@@ -151,15 +205,22 @@ source "$VENV_DIR/bin/activate"
 # Upgrade pip first
 pip install --upgrade pip --quiet
 
-# Install CPU-only PyTorch + whisper + audio libraries
+# PyGObject 3.51+ needs girepository-2.0 (not on Ubuntu 22.04). Build 3.44–3.50 into the venv.
+echo "   Installing PyGObject (GTK bindings)..."
+pip install "PyGObject>=3.44.0,<3.51.0" --quiet
+
+# Core deps into the venv. With system-site-packages, apt's Python 3.10 copies
+# (e.g. psutil) must be overridden or Python 3.11 imports the wrong binary module.
+pip install --ignore-installed psutil pynput --quiet
 pip install \
+    numpy \
     sounddevice \
     soundfile \
     openai-whisper \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     --quiet
 
-# Install TuxVox itself in editable mode
+# Install TuxVox itself in editable mode (PyGObject already satisfied above).
 pip install -e "$SCRIPT_DIR" --quiet
 
 echo ""
