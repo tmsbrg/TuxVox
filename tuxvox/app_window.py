@@ -554,24 +554,9 @@ class AppWindow(Adw.ApplicationWindow):
         return False  # Don't repeat
 
     def _on_clear_clicked(self, _button: Gtk.Button) -> None:
-        """Show confirmation dialog, then clear all text."""
-        dialog = Adw.AlertDialog.new(
-            "Clear All Text?",
-            "Are you sure you want to clear all transcribed text? This cannot be undone.",
-        )
-        dialog.add_response("cancel", "Cancel")
-        dialog.add_response("clear", "Clear All")
-        dialog.set_response_appearance("clear", Adw.ResponseAppearance.DESTRUCTIVE)
-        dialog.set_default_response("cancel")
-        dialog.set_close_response("cancel")
-        dialog.connect("response", self._on_clear_response)
-        dialog.present(self)
-
-    def _on_clear_response(self, _dialog: Adw.AlertDialog, response: str) -> None:
-        """Handle clear confirmation dialog response."""
-        if response == "clear":
-            self._text_buffer.set_text("")
-            logger.info("Text editor cleared by user.")
+        """Clear all transcribed text immediately."""
+        self._text_buffer.set_text("")
+        logger.info("Text editor cleared by user.")
 
     # ── Settings ──────────────────────────────────────────────────────
 
