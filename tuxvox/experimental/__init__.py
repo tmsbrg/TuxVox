@@ -33,7 +33,6 @@ from tuxvox.experimental.hotkey_manager import HotkeyManager
 from tuxvox.experimental.inline_typer import InlineTyper
 from tuxvox.experimental.overlay_window import OverlayWindow
 from tuxvox.experimental.tray_icon import TrayIcon
-from tuxvox.experimental import chime
 from tuxvox.logger import logger
 
 if TYPE_CHECKING:
@@ -153,7 +152,6 @@ class ExperimentalManager:
         if self._app_window._is_recording:
             # Stop recording
             self._app_window._is_recording = False
-            chime.play("stop")
             inline = self._config.get("output_mode") == "inline"
             self.overlay.set_state("transcribing")
             if not inline:
@@ -170,7 +168,6 @@ class ExperimentalManager:
             except Exception as e:
                 logger.error(f"Failed to stop recording via hotkey: {e}")
                 self._app_window._recorder.cleanup()
-                chime.play("error")
                 self.overlay.set_state("error", message=str(e))
                 self.overlay.show_overlay()
                 GLib.timeout_add(2000, self.overlay.hide_overlay)
@@ -187,18 +184,15 @@ class ExperimentalManager:
                 self._app_window._recorder.start(device=mic)
                 self._app_window._is_recording = True
 
-                chime.play("start")
                 self.overlay.set_state("listening")
                 # In inline mode the overlay must NOT be shown: presenting a
                 # window steals focus from the target app on Wayland, which
-                # would send the typed text nowhere. Audio chimes provide
-                # feedback instead.
+                # would send the typed text nowhere.
                 if not inline:
                     self.overlay.show_overlay()
 
             except Exception as e:
                 logger.error(f"Failed to start recording via hotkey: {e}")
-                chime.play("error")
                 self.overlay.set_state("error", message=str(e))
                 self.overlay.show_overlay()
                 GLib.timeout_add(2000, self.overlay.hide_overlay)
@@ -246,7 +240,6 @@ class ExperimentalManager:
             return False
 
         if not text.strip():
-            chime.play("error")
             self.overlay.set_state("error", message="No speech detected")
             self.overlay.show_overlay()
             GLib.timeout_add(2000, self.overlay.hide_overlay)
@@ -259,7 +252,6 @@ class ExperimentalManager:
             success, err_msg = self.inline_typer.type_text(text_to_type)
             if not success:
                 logger.warning(f"Inline typing failed, falling back to panel: {err_msg}")
-                chime.play("error")
                 self._app_window.append_transcription_text(text, mode="Panel Mode")
                 self._app_window.flash_taskbar()
                 self.overlay.set_state("done_panel")
@@ -267,12 +259,10 @@ class ExperimentalManager:
                 GLib.timeout_add(1500, self.overlay.hide_overlay)
             else:
                 # Success: text was typed into the focused app. Do NOT show
-                # the overlay (it would steal focus). A chime confirms it.
-                chime.play("done")
+                # the overlay (it would steal focus).
                 self._app_window.save_transcription_history(text, mode="Inline Mode")
             return False
         else:
-            chime.play("done")
             self._app_window.append_transcription_text(text, mode="Panel Mode")
             self._app_window.flash_taskbar()
             self.overlay.set_state("done_panel")
@@ -283,7 +273,6 @@ class ExperimentalManager:
     def _on_transcription_error(self, message: str) -> bool:
         """Handle transcription error on the main thread."""
         self._app_window._is_transcribing = False
-        chime.play("error")
         if self.overlay:
             self.overlay.set_state("error", message=message)
             self.overlay.show_overlay()
